@@ -9,7 +9,7 @@ const lineBreak = "\r\n"
 
 type Request struct {
 	V       string
-	Method  Method
+	Method  string
 	Headers map[string]string
 	Path    string
 	Body    []byte

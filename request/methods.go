@@ -10,9 +10,7 @@ const (
 	TRACE  = "TRACE"
 )
 
-type Method string
-
-func MethodsLookUp(name string) Method {
+func MethodsLookUp(name string) string {
 	switch name {
 	case "GET":
 		return GET

@@ -5,16 +5,25 @@ import (
 	"io"
 	"log"
 	"net"
+	"strings"
 
 	"github.com/ahmadjavaidwork/bud/request"
 )
 
 type Server struct {
-	Addr string
+	Addr   string
+	router *Router
+}
+
+func NewServer(addr string) *Server {
+	return &Server{
+		Addr:   addr,
+		router: NewRouter(),
+	}
 }
 
 func (s *Server) ListenAndServe() error {
-	listener, err := net.Listen("tcp4", "localhost:8080")
+	listener, err := net.Listen("tcp4", s.Addr)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -28,11 +37,11 @@ func (s *Server) ListenAndServe() error {
 		if err != nil {
 			log.Fatal(err)
 		}
-		go handleConnection(conn)
+		go s.handleConnection(conn)
 	}
 }
 
-func handleConnection(conn net.Conn) {
+func (s *Server) handleConnection(conn net.Conn) {
 	defer conn.Close()
 
 	buffer := make([]byte, 1024)
@@ -54,5 +63,14 @@ func handleConnection(conn net.Conn) {
 		allHeadersRead = r.MakeRequest(string(buffer))
 	}
 
-	conn.Write(buffer)
+	handler := s.router.getHandler(r.Path, r.Method)
+	if handler != nil {
+		handler()
+	}
+	conn.Close()
+}
+
+func (s *Server) addHandler(pattern string, handler func()) {
+	route := strings.Split(pattern, " ")
+	s.router.addRoute(route[1], route[0], handler)
 }
