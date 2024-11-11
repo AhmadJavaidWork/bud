@@ -4,7 +4,7 @@ import (
 	"strings"
 )
 
-type Handler func()
+type Handler func(ResponseWriter, *Request)
 
 type Route struct {
 	Handlers map[string]Handler

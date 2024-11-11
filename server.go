@@ -6,8 +6,6 @@ import (
 	"log"
 	"net"
 	"strings"
-
-	"github.com/ahmadjavaidwork/bud/request"
 )
 
 type Server struct {
@@ -45,7 +43,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 	defer conn.Close()
 
 	buffer := make([]byte, 1024)
-	r := request.InitRequest()
+	r := InitRequest()
 
 	allHeadersParsed := false
 	for {
@@ -63,17 +61,22 @@ func (s *Server) handleConnection(conn net.Conn) {
 		allHeadersParsed = r.ParseRequestMessage(buffer)
 	}
 
+	fmt.Printf("Start line: %s", r.startLine())
 	for h, v := range r.Headers {
 		fmt.Printf("%s: %s\n", h, v)
 	}
 	handler := s.router.getHandler(r.Path, r.Method)
 	if handler != nil {
-		handler()
+		w := newResponseWriter(conn, r)
+		handler(w, r)
+		w.FlushResponse()
+		conn.Write([]byte("\r\n"))
 	}
+
 	conn.Close()
 }
 
-func (s *Server) addHandler(pattern string, handler func()) {
+func (s *Server) addHandler(pattern string, handler Handler) {
 	route := strings.Split(pattern, " ")
 	s.router.addRoute(route[1], route[0], handler)
 }

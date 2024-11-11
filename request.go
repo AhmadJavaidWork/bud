@@ -1,6 +1,7 @@
-package request
+package main
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -23,7 +24,7 @@ func (req *Request) ParseRequestMessage(buffer []byte) bool {
 	cummulativeBuffer := append(req.prevBuffer, buffer...)
 	l := 0
 
-	for r := 0; r < len(cummulativeBuffer) && !req.firstLineDone(); r++ {
+	for r := 0; r < len(cummulativeBuffer) && !req.startLineDone(); r++ {
 		if cummulativeBuffer[r] != ' ' && cummulativeBuffer[r] != '\r' {
 			continue
 		}
@@ -91,6 +92,10 @@ func (r *Request) ContainsBody() (bool, error) {
 	return length > 0, nil
 }
 
-func (req *Request) firstLineDone() bool {
+func (req *Request) startLineDone() bool {
 	return req.Method != "" && req.Path == "" && req.V != ""
+}
+
+func (r *Request) startLine() string {
+	return fmt.Sprintf("%s %s %s\r\n", r.Method, r.Path, r.V)
 }
