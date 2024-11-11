@@ -47,9 +47,9 @@ func (s *Server) handleConnection(conn net.Conn) {
 	buffer := make([]byte, 1024)
 	r := request.InitRequest()
 
-	allHeadersRead := false
+	allHeadersParsed := false
 	for {
-		if allHeadersRead {
+		if allHeadersParsed {
 			break
 		}
 
@@ -60,9 +60,12 @@ func (s *Server) handleConnection(conn net.Conn) {
 			log.Fatal(err)
 		}
 
-		allHeadersRead = r.MakeRequest(string(buffer))
+		allHeadersParsed = r.ParseRequestMessage(buffer)
 	}
 
+	for h, v := range r.Headers {
+		fmt.Printf("%s: %s\n", h, v)
+	}
 	handler := s.router.getHandler(r.Path, r.Method)
 	if handler != nil {
 		handler()

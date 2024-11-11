@@ -31,7 +31,7 @@ func newRoute() *Route {
 func (r *Router) addRoute(
 	path string,
 	method string,
-	handler func(),
+	handler Handler,
 ) {
 	splitPath := strings.Split(path, "/")
 	cur := r.base
@@ -49,7 +49,7 @@ func (r *Router) addRoute(
 	cur.Handlers[method] = handler
 }
 
-func (r *Router) getHandler(path string, method string) func() {
+func (r *Router) getHandler(path string, method string) Handler {
 	splitPath := strings.Split(path, "/")
 	cur := r.base
 
