@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"time"
 )
 
 type ResponseWriter interface {
@@ -46,7 +47,8 @@ func (r response) WriteHeader(statusCode int) {
 
 func (r *response) Header() Header { return r.handlerHeader }
 
-func (r *response) FlushResponse() {
+func (r *response) flushResponse() {
+	r.Header().Set("Date", time.Now().UTC().Format(TimeFormat))
 	r.w.Write([]byte(r.Header().String()))
 	r.w.Write(r.data)
 	r.w.Flush()
