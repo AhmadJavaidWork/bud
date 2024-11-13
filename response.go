@@ -2,10 +2,9 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
+	"io"
 	"net"
-	"strconv"
 	"time"
 )
 
@@ -21,17 +20,17 @@ type response struct {
 	req           *Request
 	handlerHeader Header
 	data          []byte
-	startLine     bytes.Buffer
+	startLine     string
 }
 
-func newResponseWriter(conn net.Conn, req *Request) *response {
+func newResponseWriter(conn net.Conn, w io.Writer, req *Request) *response {
 	return &response{
 		conn:          conn,
-		w:             bufio.NewWriter(conn),
+		w:             bufio.NewWriter(w),
 		req:           req,
 		handlerHeader: make(Header),
 		data:          []byte{},
-		startLine:     bytes.Buffer{},
+		startLine:     "",
 	}
 }
 
@@ -41,8 +40,8 @@ func (r *response) Write(data []byte) (int, error) {
 }
 
 func (r response) WriteHeader(statusCode int) {
-	startLine := fmt.Sprintf("%s %s %s\r\n", r.req.V, strconv.Itoa(statusCode), StatusText(statusCode))
-	r.w.Write([]byte(startLine))
+	r.startLine = fmt.Sprintf("%s %d %s\r\n", r.req.V, statusCode, StatusText(statusCode))
+	r.w.Write([]byte(r.startLine))
 }
 
 func (r *response) Header() Header { return r.handlerHeader }
