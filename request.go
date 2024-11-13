@@ -20,68 +20,23 @@ func InitRequest() *Request {
 }
 
 func (req *Request) ParseRequestMessage(buffer []byte) bool {
-	allHeadersParsed := false
-	cummulativeBuffer := append(req.prevBuffer, buffer...)
-	l := 0
-
-	for r := 0; r < len(cummulativeBuffer) && !req.startLineDone(); r++ {
-		if cummulativeBuffer[r] != ' ' && cummulativeBuffer[r] != '\r' {
-			continue
-		}
-		if req.Method == "" && cummulativeBuffer[r] == ' ' {
-			req.Method = string(cummulativeBuffer[l:r])
-		} else if req.Path == "" && cummulativeBuffer[r] == ' ' {
-			req.Path = string(cummulativeBuffer[l:r])
-		} else if req.V == "" && cummulativeBuffer[r] == '\r' {
-			req.V = string(cummulativeBuffer[l:r])
-			cummulativeBuffer = cummulativeBuffer[r+1:]
-			break
-		}
-		l = r + 1
-	}
-
-	if cummulativeBuffer[0] == '\n' {
-		cummulativeBuffer = cummulativeBuffer[1:]
-	}
-	l = 0
-
-	for r := 0; r < len(cummulativeBuffer); r++ {
-		if cummulativeBuffer[r] != '\r' {
-			continue
-		}
-		if cummulativeBuffer[l] == '\n' {
-			l++
-		}
-		s := strings.Split(string(cummulativeBuffer[l:r]), ":")
-		if len(s[0]) == 0 {
-			allHeadersParsed = true
-			break
-		}
-		if s[1][0] == ' ' {
-			s[1] = s[1][1:]
-		}
-		req.setHeader(s[0], s[1])
-		l = r + 1
-	}
-
-	req.prevBuffer = cummulativeBuffer[l:]
-
-	return allHeadersParsed
+	req.parseStartLine(buffer)
+	return req.parseHeaders(buffer)
 }
 
-func (r *Request) GetHeader(name string) string {
-	if h, ok := r.Headers[name]; ok {
+func (req *Request) GetHeader(name string) string {
+	if h, ok := req.Headers[name]; ok {
 		return h
 	}
 	return ""
 }
 
-func (r *Request) setHeader(name string, value string) {
-	r.Headers[name] = value
+func (req *Request) setHeader(name string, value string) {
+	req.Headers[name] = value
 }
 
-func (r *Request) ContainsBody() (bool, error) {
-	cl := r.GetHeader("Content-Length")
+func (req *Request) ContainsBody() (bool, error) {
+	cl := req.GetHeader("Content-Length")
 	if cl == "" {
 		return false, nil
 	}
@@ -92,10 +47,72 @@ func (r *Request) ContainsBody() (bool, error) {
 	return length > 0, nil
 }
 
-func (req *Request) startLineDone() bool {
-	return req.Method != "" && req.Path == "" && req.V != ""
+func (req *Request) isStartLineParsed() bool {
+	return req.Method != "" && req.Path != "" && req.V != ""
 }
 
-func (r *Request) startLine() string {
-	return fmt.Sprintf("%s %s %s\r\n", r.Method, r.Path, r.V)
+func (req *Request) startLine() string {
+	return fmt.Sprintf("%s %s %s\r\n", req.Method, req.Path, req.V)
+}
+
+func (req *Request) parseStartLine(buffer []byte) {
+	if req.isStartLineParsed() {
+		return
+	}
+
+	l := 0
+	req.prevBuffer = append(req.prevBuffer, buffer...)
+	if !strings.Contains((string(req.prevBuffer)), "\r\n") {
+		return
+	}
+
+	for r := 0; req.prevBuffer[r] != '\n'; r++ {
+		if req.prevBuffer[r] != ' ' && req.prevBuffer[r] != '\r' {
+			continue
+		}
+
+		if req.Method == "" {
+			req.Method = string(req.prevBuffer[l:r])
+		} else if req.Path == "" {
+			req.Path = string(req.prevBuffer[l:r])
+		} else {
+			req.V = string(req.prevBuffer[l:r])
+		}
+		l = r + 1
+	}
+
+	req.prevBuffer = req.prevBuffer[l+1:]
+}
+
+func (req *Request) parseHeaders(buffer []byte) bool {
+	if !req.isStartLineParsed() {
+		return false
+	}
+	req.prevBuffer = append(req.prevBuffer, buffer...)
+	if !strings.Contains((string(req.prevBuffer)), "\r\n") {
+		return false
+	}
+
+	l := 0
+	allheadersParsed := false
+	for r := 0; r < len(req.prevBuffer); r++ {
+		if req.prevBuffer[r] != '\r' {
+			continue
+		}
+		if req.prevBuffer[l] == '\n' {
+			l++
+		}
+		pair := strings.Split(string(req.prevBuffer[l:r]), ":")
+		if len(pair[0]) == 0 {
+			allheadersParsed = true
+			break
+		}
+		if pair[1][0] == ' ' {
+			pair[1] = pair[1][1:]
+		}
+		req.setHeader(pair[0], pair[1])
+		l = r + 1
+	}
+	req.prevBuffer = req.prevBuffer[l:]
+	return allheadersParsed
 }
