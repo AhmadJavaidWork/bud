@@ -47,7 +47,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 	buffer := make([]byte, 1024)
 
 	req := InitRequest()
-	res := newResponseWriter(conn, conn, req)
+	res := newResponse(conn, conn, req)
 
 	allHeadersParsed := false
 	for {

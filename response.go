@@ -23,7 +23,7 @@ type response struct {
 	startLine     string
 }
 
-func newResponseWriter(conn net.Conn, w io.Writer, req *Request) *response {
+func newResponse(conn net.Conn, w io.Writer, req *Request) *response {
 	return &response{
 		conn:          conn,
 		w:             bufio.NewWriter(w),
