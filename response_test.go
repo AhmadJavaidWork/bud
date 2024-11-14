@@ -7,7 +7,7 @@ import (
 
 func TestResponseWriteHeader(t *testing.T) {
 	req := InitRequest()
-	req.ParseRequestMessage([]byte(RAW_REQUEST))
+	req.ParseRequestMessage([]byte(RAW_REQUEST_WITHOUT_BODY))
 	rw := newResponseWriter(nil, io.Discard, req)
 
 	rw.Header().Set("Connection", "close")

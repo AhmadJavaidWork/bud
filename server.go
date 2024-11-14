@@ -35,7 +35,7 @@ func (s *Server) ListenAndServe() error {
 		// Wait for a connection.
 		conn, err := listener.Accept()
 		if err != nil {
-			log.Fatal(err)
+			fmt.Println("error accepting connection: ", err)
 		}
 		go s.handleConnection(conn)
 	}
@@ -46,48 +46,62 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 	buffer := make([]byte, 1024)
 
-	r := InitRequest()
-	w := newResponseWriter(conn, conn, r)
+	req := InitRequest()
+	res := newResponseWriter(conn, conn, req)
 
 	allHeadersParsed := false
 	for {
-		if allHeadersParsed {
+		contentLength, err := req.contentLength()
+		if err != nil {
+			log := fmt.Sprintf("error reading content length: %s", err.Error())
+			requestErrorHandler(res, req, log, internalServerErrorHandler)
+			return
+		}
+		if contentLength == len(req.Body) && allHeadersParsed {
 			break
 		}
 
-		_, err := conn.Read(buffer)
+		n, err := conn.Read(buffer)
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			internalServerErrorHandler(w, r)
-			log.Fatal(err)
+			log := fmt.Sprintf("error reading request: %s", err.Error())
+			requestErrorHandler(res, req, log, internalServerErrorHandler)
+			return
 		}
 
-		allHeadersParsed = r.ParseRequestMessage(buffer)
+		allHeadersParsed = req.ParseRequestMessage(buffer[:n])
 	}
 
-	for h, v := range r.Headers {
+	for h, v := range req.Headers {
 		fmt.Printf("%s: %s\n", h, v)
 	}
 
-	if r.Method != GET {
-		methodNotAllowed(w, r)
-		w.flushResponse()
-		conn.Close()
+	if req.Method != GET {
+		log := "method not allowed"
+		requestErrorHandler(res, req, log, methodNotAllowed)
 		return
 	}
 
-	handler := s.router.getHandler(r.Path, r.Method)
+	handler := s.router.getHandler(req.Path, req.Method)
 	if handler == nil {
 		handler = notFoundHandler
 	}
-	handler(w, r)
-	w.flushResponse()
-
-	conn.Close()
+	handler(res, req)
+	res.flushResponse()
 }
 
 func (s *Server) addHandler(pattern string, handler Handler) {
 	route := strings.Split(pattern, " ")
 	s.router.addRoute(route[1], route[0], handler)
+}
+
+func requestErrorHandler(rw ResponseWriter, req *Request, err string, handler Handler) {
+	handler(rw, req)
+	fmt.Println(err)
+	res, ok := rw.(*response)
+	if !ok {
+		return
+	}
+	res.flushResponse()
 }
