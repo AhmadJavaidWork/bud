@@ -21,7 +21,7 @@ func InitRequest() *Request {
 
 func (req *Request) ParseRequestMessage(buffer []byte) bool {
 	req.parseStartLine(buffer)
-	return req.parseHeaders(buffer)
+	return req.parseHeaders()
 }
 
 func (req *Request) GetHeader(name string) string {
@@ -56,12 +56,12 @@ func (req *Request) startLine() string {
 }
 
 func (req *Request) parseStartLine(buffer []byte) {
+	req.prevBuffer = append(req.prevBuffer, buffer...)
 	if req.isStartLineParsed() {
 		return
 	}
 
 	l := 0
-	req.prevBuffer = append(req.prevBuffer, buffer...)
 	if !strings.Contains((string(req.prevBuffer)), "\r\n") {
 		return
 	}
@@ -84,11 +84,11 @@ func (req *Request) parseStartLine(buffer []byte) {
 	req.prevBuffer = req.prevBuffer[l+1:]
 }
 
-func (req *Request) parseHeaders(buffer []byte) bool {
+func (req *Request) parseHeaders() bool {
 	if !req.isStartLineParsed() {
 		return false
 	}
-	req.prevBuffer = append(req.prevBuffer, buffer...)
+
 	if !strings.Contains((string(req.prevBuffer)), "\r\n") {
 		return false
 	}
@@ -102,11 +102,13 @@ func (req *Request) parseHeaders(buffer []byte) bool {
 		if req.prevBuffer[l] == '\n' {
 			l++
 		}
+
 		pair := strings.Split(string(req.prevBuffer[l:r]), ":")
 		if len(pair[0]) == 0 {
 			allheadersParsed = true
 			break
 		}
+
 		if pair[1][0] == ' ' {
 			pair[1] = pair[1][1:]
 		}
