@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -21,6 +23,7 @@ type response struct {
 	handlerHeader Header
 	data          []byte
 	startLine     string
+	body          []byte
 }
 
 func newResponse(conn net.Conn, w io.Writer, req *Request) *response {
@@ -30,25 +33,31 @@ func newResponse(conn net.Conn, w io.Writer, req *Request) *response {
 		req:           req,
 		handlerHeader: make(Header),
 		data:          []byte{},
+		body:          []byte{},
 		startLine:     "",
 	}
 }
 
-func (r *response) Write(data []byte) (int, error) {
-	r.data = append(r.data, data...)
-	return len(r.data), nil
+func (res *response) Write(data []byte) (int, error) {
+	res.body = append(res.body, data...)
+	return len(res.body), nil
 }
 
-func (r response) WriteHeader(statusCode int) {
-	r.startLine = fmt.Sprintf("%s %d %s\r\n", r.req.V, statusCode, StatusText(statusCode))
-	r.w.Write([]byte(r.startLine))
+func (res response) WriteHeader(statusCode int) {
+	res.startLine = fmt.Sprintf("%s %d %s\r\n", res.req.V, statusCode, StatusText(statusCode))
+	res.w.Write([]byte(res.startLine))
 }
 
-func (r *response) Header() Header { return r.handlerHeader }
+func (res *response) Header() Header { return res.handlerHeader }
 
-func (r *response) flushResponse() {
-	r.Header().Set("Date", time.Now().UTC().Format(TimeFormat))
-	r.w.Write([]byte(r.Header().String()))
-	r.w.Write(r.data)
-	r.w.Flush()
+func (res *response) flushResponse() {
+	res.Header().Set("Date", time.Now().UTC().Format(TimeFormat))
+
+	contentType := http.DetectContentType(res.body)
+	res.Header().Set("Content-Type", contentType)
+	res.Header().Set("Content-Length", strconv.Itoa(len(res.body)))
+
+	res.w.Write([]byte(res.Header().String()))
+	res.w.Write(res.body)
+	res.w.Flush()
 }
