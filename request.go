@@ -154,3 +154,11 @@ func (req *Request) parseBody(allHeadersParsed bool) error {
 
 	return nil
 }
+
+func (req *Request) shouldKeepAlive() bool {
+	h, ok := req.Headers["Connection"]
+	if !ok {
+		return false
+	}
+	return strings.Contains(h, "keep-alive")
+}

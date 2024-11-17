@@ -13,9 +13,10 @@ const TimeFormat = "Mon, 02 Jan 2006 15:04:05 GMT"
 const ReadDeadline = time.Second * 5
 
 type Server struct {
-	Addr         string
-	router       *Router
-	ReadDeadline time.Duration
+	Addr            string
+	router          *Router
+	ReadDeadline    time.Duration
+	openConnections int
 }
 
 func NewServer(addr string) *Server {
@@ -46,54 +47,65 @@ func (s *Server) ListenAndServe() error {
 }
 
 func (s *Server) handleConnection(conn net.Conn) {
-	defer conn.Close()
+	defer func() {
+		conn.Close()
+		s.openConnections--
+	}()
 
-	buffer := make([]byte, 1024)
+	s.openConnections++
 
-	req := InitRequest()
-	res := newResponse(conn, conn, req)
-	conn.SetReadDeadline(time.Now().Add(s.ReadDeadline))
-
-	allHeadersParsed := false
 	for {
-		contentLength, err := req.contentLength()
-		if err != nil {
-			log := fmt.Sprintf("error reading content length: %s", err.Error())
-			requestErrorHandler(res, req, log, internalServerErrorHandler)
+		buffer := make([]byte, 1024)
+
+		req := InitRequest()
+		res := newResponse(conn, conn, req)
+
+		allHeadersParsed := false
+		for {
+			contentLength, err := req.contentLength()
+			if err != nil {
+				log := fmt.Sprintf("error reading content length: %s", err.Error())
+				requestErrorHandler(res, req, log, internalServerErrorHandler)
+				return
+			}
+			if contentLength == len(req.Body) && allHeadersParsed {
+				break
+			}
+
+			n, err := conn.Read(buffer)
+			if err == io.EOF {
+				break
+			} else if err != nil {
+				log := fmt.Sprintf("error reading request: %s", err.Error())
+				requestErrorHandler(res, req, log, internalServerErrorHandler)
+				return
+			}
+
+			allHeadersParsed = req.ParseRequestMessage(buffer[:n])
+		}
+
+		for h, v := range req.Headers {
+			fmt.Printf("%s: %s\n", h, v)
+		}
+
+		if req.Method != GET {
+			log := "method not allowed"
+			requestErrorHandler(res, req, log, methodNotAllowed)
 			return
 		}
-		if contentLength == len(req.Body) && allHeadersParsed {
+
+		handler := s.router.getHandler(req.Path, req.Method)
+		if handler == nil {
+			handler = notFoundHandler
+			delete(req.Headers, "Connection")
+		}
+		handler(res, req)
+		res.flushResponse()
+
+		if !req.shouldKeepAlive() {
 			break
 		}
-
-		n, err := conn.Read(buffer)
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			log := fmt.Sprintf("error reading request: %s", err.Error())
-			requestErrorHandler(res, req, log, internalServerErrorHandler)
-			return
-		}
-
-		allHeadersParsed = req.ParseRequestMessage(buffer[:n])
 	}
-
-	for h, v := range req.Headers {
-		fmt.Printf("%s: %s\n", h, v)
-	}
-
-	if req.Method != GET {
-		log := "method not allowed"
-		requestErrorHandler(res, req, log, methodNotAllowed)
-		return
-	}
-
-	handler := s.router.getHandler(req.Path, req.Method)
-	if handler == nil {
-		handler = notFoundHandler
-	}
-	handler(res, req)
-	res.flushResponse()
 }
 
 func (s *Server) addHandler(pattern string, handler Handler) {
