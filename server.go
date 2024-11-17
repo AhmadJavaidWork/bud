@@ -104,7 +104,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 	}
 }
 
-func (s *Server) addHandler(pattern string, handler Handler) {
+func (s *Server) AddHandler(pattern string, handler Handler) {
 	route := strings.Split(pattern, " ")
 	s.router.addRoute(route[1], route[0], handler)
 }
