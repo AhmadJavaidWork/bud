@@ -6,24 +6,20 @@ import (
 	"log"
 	"net"
 	"strings"
-	"time"
 )
 
 const TimeFormat = "Mon, 02 Jan 2006 15:04:05 GMT"
-const ReadDeadline = time.Second * 5
 
 type Server struct {
 	Addr            string
 	router          *Router
-	ReadDeadline    time.Duration
 	openConnections int
 }
 
 func NewServer(addr string) *Server {
 	return &Server{
-		Addr:         addr,
-		router:       NewRouter(),
-		ReadDeadline: 5 * time.Second,
+		Addr:   addr,
+		router: NewRouter(),
 	}
 }
 
@@ -121,8 +117,4 @@ func requestErrorHandler(rw ResponseWriter, req *Request, err string, handler Ha
 		return
 	}
 	res.flushResponse()
-}
-
-func (s *Server) SetReadDeadline(readDeadline time.Duration) {
-	s.ReadDeadline = readDeadline
 }
