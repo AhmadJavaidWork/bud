@@ -6,7 +6,7 @@ http implementation in go
 
 Creates a new `Server` and returns a pointer to it
 
-`Type Server`
+`Type: Server`
 
 ```
 Addr            string  // tcp4 address to open the connection on e.g 127.0.0.1:8080
@@ -25,3 +25,25 @@ openConnections int     // counts open connections at any moment
 - `handleConnection() error`
 
   Handles a connection. It reads HTTP messages, parses them into `Request` and serves them accordingly. It also closes connections if the HTTP message is malformed or the message form is not supported.
+
+`Type: response`
+
+Response implements `ResponseWriter`
+
+```
+conn          net.Conn
+w             *bufio.Writer
+req           *Request
+handlerHeader Header
+data          []byte
+startLine     string
+body          []byte
+```
+
+`Type: ResponseWriter`
+
+```
+Write(data []byte{}) (int, err) // writes data to response.body
+Header() Header                 // returns header handler for response
+WriteHeader(statusCode int)     // writes startline of the response
+```
